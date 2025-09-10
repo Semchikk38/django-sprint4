@@ -1,24 +1,36 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
-from .constants import CHAR_FIELD_MAX_LENGTH, SLUG_MAX_LENGTH, STR_MAX_LENGTH
+from django.utils import timezone
+from django.db.models import Count, Q
 
 from .constants import (
     CHAR_FIELD_MAX_LENGTH,
     SLUG_MAX_LENGTH,
-    STR_MAX_LENGTH
-
+    STR_MAX_LENGTH,
+    MIN_LENGTH_SHORT,
+    MIN_LENGTH_TEXT
 )
 
 User = get_user_model()
 
 
-class IsPublishedCreatedAtAbstract(models.Model):
-    is_published = models.BooleanField(
-        default=True,
-        verbose_name='Опубликовано',
-        help_text='Снимите галочку, чтобы скрыть публикацию.'
-    )
+class PostQuerySet(models.QuerySet):
+    def published(self):
+        return self.filter(
+            pub_date__lte=timezone.now(),
+            is_published=True,
+            category__is_published=True
+        ).order_by('-pub_date')
+
+    def with_comment_count(self):
+        return self.annotate(comment_count=Count('comments'))
+
+    def published_with_comments(self):
+        return self.published().with_comment_count()
+
+
+class CreatedAtAbstract(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Добавлено'
@@ -27,6 +39,17 @@ class IsPublishedCreatedAtAbstract(models.Model):
     class Meta:
         abstract = True
         ordering = ('created_at',)
+
+
+class IsPublishedCreatedAtAbstract(CreatedAtAbstract):
+    is_published = models.BooleanField(
+        default=True,
+        verbose_name='Опубликовано',
+        help_text='Снимите галочку, чтобы скрыть публикацию.'
+    )
+
+    class Meta:
+        abstract = True
 
 
 class Category(IsPublishedCreatedAtAbstract):
@@ -43,7 +66,7 @@ class Category(IsPublishedCreatedAtAbstract):
         ' разрешены символы латиницы, цифры, дефис и подчёркивание.'
     )
 
-    class Meta:
+    class Meta(IsPublishedCreatedAtAbstract.Meta):
         verbose_name = 'категория'
         verbose_name_plural = 'Категории'
 
@@ -57,7 +80,7 @@ class Location(IsPublishedCreatedAtAbstract):
         verbose_name='Название места'
     )
 
-    class Meta:
+    class Meta(IsPublishedCreatedAtAbstract.Meta):
         verbose_name = 'местоположение'
         verbose_name_plural = 'Местоположения'
 
@@ -69,11 +92,11 @@ class Post(IsPublishedCreatedAtAbstract):
     title = models.CharField(
         max_length=CHAR_FIELD_MAX_LENGTH,
         verbose_name='Заголовок',
-        validators=[MinLengthValidator(3)]
+        validators=[MinLengthValidator(MIN_LENGTH_SHORT)]
     )
     text = models.TextField(
         verbose_name='Текст',
-        validators=[MinLengthValidator(10)]
+        validators=[MinLengthValidator(MIN_LENGTH_TEXT)]
     )
     pub_date = models.DateTimeField(
         verbose_name='Дата и время публикации',
@@ -92,11 +115,6 @@ class Post(IsPublishedCreatedAtAbstract):
         blank=True,
         verbose_name='Местоположение'
     )
-    is_published = models.BooleanField(
-        default=True,
-        verbose_name='Опубликовано',
-        help_text='Снимите галочку, чтобы скрыть публикацию.'
-    )
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
@@ -109,6 +127,8 @@ class Post(IsPublishedCreatedAtAbstract):
         blank=True
     )
 
+    objects = PostQuerySet.as_manager()
+
     class Meta:
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
@@ -119,10 +139,10 @@ class Post(IsPublishedCreatedAtAbstract):
         return self.title[:STR_MAX_LENGTH]
 
 
-class Comment(models.Model):
+class Comment(CreatedAtAbstract):
     text = models.TextField(
         'Текст комментария',
-        validators=[MinLengthValidator(3)]
+        validators=[MinLengthValidator(MIN_LENGTH_SHORT)]
     )
     post = models.ForeignKey(
         Post,
@@ -134,12 +154,8 @@ class Comment(models.Model):
         on_delete=models.CASCADE,
         related_name='comments',
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-    )
 
-    class Meta:
-        ordering = ('created_at',)
+    class Meta(CreatedAtAbstract.Meta):
         verbose_name = 'комментарий'
         verbose_name_plural = 'Комментарии'
 
