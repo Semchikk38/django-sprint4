@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count
 
 from .constants import (
     CHAR_FIELD_MAX_LENGTH,

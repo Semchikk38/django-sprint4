@@ -1,8 +1,6 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
-from django.utils import timezone
-from django.http import Http404
 
 from .models import Category, Post, Comment
 from .forms import PostForm, CommentForm, UserUpdateForm
