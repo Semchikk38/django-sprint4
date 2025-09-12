@@ -10,9 +10,7 @@ User = get_user_model()
 
 
 def index(request):
-    post_list = Post.objects.published().with_comment_count().order_by(
-        '-pub_date'
-    )
+    post_list = Post.objects.filter_published().with_comment_count()
     page_obj = paginate_posts(request, post_list)
     return render(request, 'blog/index.html', {'page_obj': page_obj})
 
@@ -21,7 +19,7 @@ def post_detail(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
     if post.author != request.user:
-        post = get_object_or_404(Post.objects.published(), id=post_id)
+        post = get_object_or_404(Post.objects.filter_published(), id=post_id)
 
     form = CommentForm(request.POST or None)
     comments = post.comments.select_related('author')
@@ -39,9 +37,7 @@ def category_posts(request, category_slug):
         slug=category_slug,
         is_published=True
     )
-    post_list = category.posts.published().with_comment_count().order_by(
-        '-pub_date'
-    )
+    post_list = category.posts.filter_published().with_comment_count()
     page_obj = paginate_posts(request, post_list)
 
     return render(
@@ -53,10 +49,10 @@ def category_posts(request, category_slug):
 
 def profile(request, username):
     profile_user = get_object_or_404(User, username=username)
-    posts = profile_user.posts.with_comment_count().order_by('-pub_date')
+    posts = profile_user.posts.with_comment_count()
 
     if request.user != profile_user:
-        posts = posts.published()
+        posts = posts.filter_published()
 
     page_obj = paginate_posts(request, posts)
 

@@ -16,19 +16,17 @@ User = get_user_model()
 
 
 class PostQuerySet(models.QuerySet):
-    def published(self):
-        return self.select_related(
-            'author', 'category', 'location'
-        ).filter(
+    def filter_published(self):
+        return self.filter(
             pub_date__lte=timezone.now(),
             is_published=True,
             category__is_published=True
         )
 
     def with_comment_count(self):
-        return self.select_related(  # Добавил select_related
+        return self.select_related(
             'author', 'category', 'location'
-        ).annotate(comment_count=Count('comments'))
+        ).annotate(comment_count=Count('comments')).order_by('-pub_date')
 
 
 class CreatedAtAbstract(models.Model):
